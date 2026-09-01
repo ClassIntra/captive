@@ -10,7 +10,7 @@
 
 ## 简介
 
-Captive 是 [ClassIntra](https://github.com/ClassIntra/ClassIntra) 的配套工具，适用于校园热点场景。当学生设备连接到教师电脑的移动热点后，无需任何客户端配置，即可在 DNS 层自动将指定教育平台域名重定向到 ClassIntra 服务。
+Captive 是 [ClassIntra](https://github.com/ClassIntra/ClassIntra) 的配套工具，适用于校园热点场景。当学生设备连接到超脑的移动热点后，无需任何客户端配置，即可在 DNS 层自动将指定教育平台域名重定向到 ClassIntra 服务。
 
 **典型使用场景：** 教师在课堂上开启电脑热点，学生平板连接后，访问学科网、畅言智慧课堂等平台时自动跳转到 ClassIntra 内网平台。
 
