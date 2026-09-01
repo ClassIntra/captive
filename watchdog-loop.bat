@@ -11,6 +11,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%DIR%watchdog.ps1"
 
 if exist "%STOP_FLAG%" exit /b 0
 
-:: Restart the watchdog itself if PowerShell exits unexpectedly
-timeout /t 5 /nobreak >nul
+:: Restart the watchdog itself if PowerShell exits unexpectedly.
+powershell.exe -NoProfile -Command "Start-Sleep -Seconds 5"
 goto :RunWatchdog
