@@ -34,7 +34,7 @@ for /f "tokens=2 delims==" %%a in ('wmic process where "commandline like '%%hots
         if not "!PID!"=="" (
             echo   Stopping node.exe PID !PID!...
             taskkill /f /pid !PID! >nul 2>&1
-            timeout /t 1 /nobreak >nul
+            powershell.exe -NoProfile -Command "Start-Sleep -Seconds 1"
             set "KILLED=1"
         )
     )

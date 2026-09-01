@@ -45,7 +45,7 @@ for /f "tokens=2 delims==" %%a in ('wmic process where "commandline like '%%hots
             )
 
             :: Wait a moment for process to exit
-            timeout /t 2 /nobreak >nul
+            powershell.exe -NoProfile -Command "Start-Sleep -Seconds 2"
 
             :: Verify it's gone
             tasklist /fi "pid eq !PID!" 2>nul | findstr "!PID!" >nul 2>&1

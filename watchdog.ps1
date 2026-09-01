@@ -6,10 +6,28 @@ $ErrorActionPreference = 'SilentlyContinue'
 $batch = Join-Path $BaseDir 'start-hotspot-redirect.bat'
 $stopFlag = Join-Path $BaseDir 'watchdog.stop'
 $log = Join-Path $BaseDir 'logs\watchdog.log'
-$mutex = New-Object System.Threading.Mutex($false, 'Global\IR_Hotspot_Redirect_Watchdog')
+$lockPath = Join-Path $BaseDir 'watchdog.lock'
+$lockStream = $null
 
-if (-not $mutex.WaitOne(0, $false)) {
-    exit 0
+# A file handle is more reliable than a named mutex across scheduled-task
+# sessions. CreateNew is atomic, so only one watchdog can continue.
+try {
+    $lockStream = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    $lockStream.WriteByte(0)
+    $lockStream.Flush()
+} catch {
+    # A forced termination can leave the marker behind. If the file is not
+    # currently locked, remove the stale marker and acquire it once more.
+    try {
+        $staleStream = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        $staleStream.Dispose()
+        Remove-Item -LiteralPath $lockPath -Force -ErrorAction Stop
+        $lockStream = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        $lockStream.WriteByte(0)
+        $lockStream.Flush()
+    } catch {
+        exit 0
+    }
 }
 
 function Write-WatchdogLog {
@@ -64,7 +82,9 @@ function Stop-ProxyProcesses {
 }
 
 function Start-Proxy {
-    if (-not (Test-Path -LiteralPath $stopFlag)) {
+    $existing = @(Get-ProxyProcesses)
+    $existingLaunchers = @(Get-LauncherProcesses)
+    if (-not (Test-Path -LiteralPath $stopFlag) -and $existing.Count -eq 0 -and $existingLaunchers.Count -eq 0) {
         Write-WatchdogLog 'Starting hotspot and redirect service.'
         Start-Process -FilePath 'cmd.exe' -ArgumentList '/d', '/c', "`"$batch`" --silent" -WorkingDirectory $BaseDir -WindowStyle Hidden
     }
@@ -99,6 +119,8 @@ try {
     }
 } finally {
     Write-WatchdogLog 'Watchdog stopped.'
-    $mutex.ReleaseMutex()
-    $mutex.Dispose()
+    if ($lockStream) {
+        $lockStream.Dispose()
+        Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
+    }
 }
