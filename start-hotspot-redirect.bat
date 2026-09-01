@@ -1,0 +1,133 @@
+@echo off
+setlocal enabledelayedexpansion
+
+:: ============================================================
+:: Hotspot HTTPS Redirect - Startup Script
+::   Interactive : start-hotspot-redirect.bat
+::   Silent      : start-hotspot-redirect.bat --silent
+:: ============================================================
+
+if /i "%~1"=="--silent" goto :Silent
+
+:: A manual start re-enables the watchdog after a previous stop
+if exist "%~dp0watchdog.stop" del "%~dp0watchdog.stop" >nul 2>&1
+
+:: ============================================================
+:: INTERACTIVE MODE (visible console window)
+:: ============================================================
+title Hotspot HTTPS Redirect Service
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] This script requires Administrator privileges!
+    echo         Right-click this file -^> "Run as administrator"
+    pause
+    exit /b 1
+)
+
+set "DIR=%~dp0"
+
+echo.
+echo ================================================
+echo   Hotspot HTTPS Redirect - Startup Script
+echo ================================================
+echo.
+
+call :DoWork
+
+pause
+exit /b %errorlevel%
+
+:: ============================================================
+:: SILENT MODE (log to file, no console window)
+:: ============================================================
+:Silent
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Administrator privileges are required.>>"%~dp0logs\service.log"
+    exit /b 1
+)
+
+set "DIR=%~dp0"
+
+if not exist "%DIR%logs" mkdir "%DIR%logs"
+set "LOG=%DIR%logs\service.log"
+
+echo. >> "%LOG%"
+echo ============================================= >> "%LOG%"
+echo [%date% %time%] Service starting (silent) >> "%LOG%"
+echo ============================================= >> "%LOG%"
+
+call :DoWork >> "%LOG%" 2>&1
+
+exit /b %errorlevel%
+
+:: ============================================================
+:: CORE LOGIC
+:: ============================================================
+:DoWork
+
+echo [1/4] Checking DNS port 53...
+echo.
+
+powershell -NoProfile -Command "if (Get-NetUDPEndpoint -LocalPort 53 -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
+if %errorlevel% equ 0 (
+    echo   [INFO] Port 53 is currently used by the Windows hotspot DNS service.
+) else (
+    echo   [OK] Port 53 is free
+)
+
+echo.
+echo [2/4] Starting mobile hotspot...
+echo.
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%start-hotspot.ps1" -Verbose
+if %errorlevel% equ 0 (
+    echo   [OK] Mobile hotspot is ready
+) else (
+    echo   [WARN] Failed to start hotspot automatically
+    echo          Please enable manually:
+    echo          Settings ^> Network ^> Mobile Hotspot ^> On
+)
+
+:: Never stop SharedAccess here: it is the Windows Mobile Hotspot service.
+:: Stopping it can take the hotspot down.
+echo   [INFO] Keeping the Windows hotspot service running.
+
+echo.
+echo [3/4] Configuring firewall...
+echo.
+
+netsh advfirewall firewall delete rule name="Hotspot DNS Redirect" >nul 2>&1
+netsh advfirewall firewall delete rule name="Hotspot HTTPS Redirect" >nul 2>&1
+netsh advfirewall firewall add rule name="Hotspot DNS Redirect" dir=in action=allow protocol=UDP localport=53 remoteip=192.168.137.0/24 >nul 2>&1
+netsh advfirewall firewall add rule name="Hotspot HTTPS Redirect" dir=in action=allow protocol=TCP localport=443 remoteip=192.168.137.0/24 >nul 2>&1
+echo   [OK] Firewall rules configured
+
+echo.
+echo [4/4] Starting DNS + HTTPS redirect service...
+echo.
+echo   Press Ctrl+C to stop
+echo ------------------------------------------------
+echo.
+
+node "%DIR%hotspot-redirect.js"
+
+:: --------------------------------------------------
+:: Cleanup (runs after service exits)
+:: --------------------------------------------------
+echo.
+echo Cleaning up...
+echo.
+
+netsh advfirewall firewall delete rule name="Hotspot DNS Redirect" >nul 2>&1
+netsh advfirewall firewall delete rule name="Hotspot HTTPS Redirect" >nul 2>&1
+echo   [OK] Firewall rules removed
+
+sc start SharedAccess >nul 2>&1
+echo   [OK] ICS service restored
+
+echo.
+echo Service stopped.
+goto :EOF

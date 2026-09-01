@@ -1,0 +1,104 @@
+param(
+    [string]$BaseDir = $PSScriptRoot
+)
+
+$ErrorActionPreference = 'SilentlyContinue'
+$batch = Join-Path $BaseDir 'start-hotspot-redirect.bat'
+$stopFlag = Join-Path $BaseDir 'watchdog.stop'
+$log = Join-Path $BaseDir 'logs\watchdog.log'
+$mutex = New-Object System.Threading.Mutex($false, 'Global\IR_Hotspot_Redirect_Watchdog')
+
+if (-not $mutex.WaitOne(0, $false)) {
+    exit 0
+}
+
+function Write-WatchdogLog {
+    param([string]$Message)
+    Add-Content -LiteralPath $log -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message)
+}
+
+function Get-HotspotState {
+    try {
+        Add-Type -AssemblyName System.Runtime.WindowsRuntime | Out-Null
+        $profile = [Windows.Networking.Connectivity.NetworkInformation,Windows.Networking.Connectivity,ContentType=WindowsRuntime]::GetInternetConnectionProfile()
+        if (-not $profile) { return 'NoConnection' }
+        $manager = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager,Windows.Networking.NetworkOperators,ContentType=WindowsRuntime]::CreateFromConnectionProfile($profile)
+        return [string]$manager.TetheringOperationalState
+    } catch { return 'Unknown' }
+}
+
+function Get-ProxyProcesses {
+    $httpsPids = @(
+        Get-NetTCPConnection -LocalPort 443 -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess
+    ) | ForEach-Object { [int]$_ } | Sort-Object -Unique
+
+    @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object {
+        ($_.CommandLine -and $_.CommandLine -like '*hotspot-redirect.js*') -or
+        ($httpsPids -contains [int]$_.ProcessId)
+    })
+}
+
+function Get-LauncherProcesses {
+    @(Get-CimInstance Win32_Process -Filter "Name = 'cmd.exe'" | Where-Object {
+        $_.CommandLine -and $_.CommandLine -like '*start-hotspot-redirect.bat*--silent*'
+    })
+}
+
+function Test-ProxyHealthy {
+    $processes = Get-ProxyProcesses
+    if ($processes.Count -ne 1) { return $false }
+
+    $proxyPid = [int]$processes[0].ProcessId
+    $httpsEndpoint = @(Get-NetTCPConnection -LocalPort 443 -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -eq $proxyPid })
+    return ($httpsEndpoint.Count -gt 0)
+}
+
+function Stop-ProxyProcesses {
+    $processes = Get-ProxyProcesses
+    foreach ($process in $processes) {
+        Write-WatchdogLog "Stopping proxy PID $($process.ProcessId)."
+        Stop-Process -Id $process.ProcessId -Force
+    }
+    if ($processes.Count -gt 0) { Start-Sleep -Seconds 3 }
+}
+
+function Start-Proxy {
+    if (-not (Test-Path -LiteralPath $stopFlag)) {
+        Write-WatchdogLog 'Starting hotspot and redirect service.'
+        Start-Process -FilePath 'cmd.exe' -ArgumentList '/d', '/c', "`"$batch`" --silent" -WorkingDirectory $BaseDir -WindowStyle Hidden
+    }
+}
+
+New-Item -ItemType Directory -Path (Split-Path -Parent $log) -Force | Out-Null
+Remove-Item -LiteralPath $stopFlag -Force
+Write-WatchdogLog 'Watchdog started.'
+
+try {
+    while (-not (Test-Path -LiteralPath $stopFlag)) {
+        $processes = Get-ProxyProcesses
+        $launchers = Get-LauncherProcesses
+        $state = Get-HotspotState
+        $healthy = Test-ProxyHealthy
+
+        if ($state -eq 'Off' -or $state -eq 'NoConnection') {
+            if ($processes.Count -gt 0 -or $launchers.Count -gt 0) {
+                Write-WatchdogLog "Hotspot state is $state; restarting proxy."
+                Stop-ProxyProcesses
+            }
+            if ($launchers.Count -eq 0) { Start-Proxy }
+            Start-Sleep -Seconds 5
+        } elseif (-not $healthy -and $launchers.Count -eq 0) {
+            Write-WatchdogLog "Proxy health check failed (process or port 443 missing); restarting."
+            Stop-ProxyProcesses
+            Start-Proxy
+            Start-Sleep -Seconds 5
+        }
+
+        Start-Sleep -Seconds 15
+    }
+} finally {
+    Write-WatchdogLog 'Watchdog stopped.'
+    $mutex.ReleaseMutex()
+    $mutex.Dispose()
+}
