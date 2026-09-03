@@ -46,14 +46,8 @@ function Get-HotspotState {
 }
 
 function Get-ProxyProcesses {
-    $httpsPids = @(
-        Get-NetTCPConnection -LocalPort 443 -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty OwningProcess
-    ) | ForEach-Object { [int]$_ } | Sort-Object -Unique
-
     @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object {
-        ($_.CommandLine -and $_.CommandLine -like '*hotspot-redirect.js*') -or
-        ($httpsPids -contains [int]$_.ProcessId)
+        $_.CommandLine -and $_.CommandLine -like '*hotspot-redirect.js*'
     })
 }
 
@@ -83,16 +77,17 @@ function Stop-ProxyProcesses {
 
 function Start-Proxy {
     $existing = @(Get-ProxyProcesses)
-    $existingLaunchers = @(Get-LauncherProcesses)
-    if (-not (Test-Path -LiteralPath $stopFlag) -and $existing.Count -eq 0 -and $existingLaunchers.Count -eq 0) {
+    if (-not (Test-Path -LiteralPath $stopFlag) -and $existing.Count -eq 0) {
         Write-WatchdogLog 'Starting hotspot and redirect service.'
         Start-Process -FilePath 'cmd.exe' -ArgumentList '/d', '/c', "`"$batch`" --silent" -WorkingDirectory $BaseDir -WindowStyle Hidden
     }
 }
 
 New-Item -ItemType Directory -Path (Split-Path -Parent $log) -Force | Out-Null
-Remove-Item -LiteralPath $stopFlag -Force
 Write-WatchdogLog 'Watchdog started.'
+
+$lastStart = [datetime]::MinValue
+$startCooldown = [timespan]::FromSeconds(60)
 
 try {
     while (-not (Test-Path -LiteralPath $stopFlag)) {
@@ -106,11 +101,15 @@ try {
                 Write-WatchdogLog "Hotspot state is $state; restarting proxy."
                 Stop-ProxyProcesses
             }
-            if ($launchers.Count -eq 0) { Start-Proxy }
+            if ($launchers.Count -eq 0 -and ((Get-Date) - $lastStart) -ge $startCooldown) {
+                $lastStart = Get-Date
+                Start-Proxy
+            }
             Start-Sleep -Seconds 5
-        } elseif (-not $healthy -and $launchers.Count -eq 0) {
+        } elseif (-not $healthy -and $launchers.Count -eq 0 -and ((Get-Date) - $lastStart) -ge $startCooldown) {
             Write-WatchdogLog "Proxy health check failed (process or port 443 missing); restarting."
             Stop-ProxyProcesses
+            $lastStart = Get-Date
             Start-Proxy
             Start-Sleep -Seconds 5
         }

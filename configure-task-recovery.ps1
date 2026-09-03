@@ -18,15 +18,3 @@ $definition.Settings.RestartInterval = 'PT1M'
 $definition.Settings.DisallowStartIfOnBatteries = $false
 $definition.Settings.StopIfGoingOnBatteries = $false
 $root.RegisterTaskDefinition($TaskName, $definition, 6, $null, $null, $task.Definition.Principal.LogonType, $null) | Out-Null
-
-$recoveryName = 'IR_Hotspot_Redirect_Recovery'
-try {
-    $recovery = $root.GetTask($recoveryName)
-    $recoveryDefinition = $recovery.Definition
-    $recoveryDefinition.Settings.ExecutionTimeLimit = 'PT0S'
-    $recoveryDefinition.Settings.DisallowStartIfOnBatteries = $false
-    $recoveryDefinition.Settings.StopIfGoingOnBatteries = $false
-    $root.RegisterTaskDefinition($recoveryName, $recoveryDefinition, 6, $null, $null, $recovery.Definition.Principal.LogonType, $null) | Out-Null
-} catch {
-    # The recovery task is created separately by the installer.
-}

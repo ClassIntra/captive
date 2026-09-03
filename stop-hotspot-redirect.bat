@@ -23,6 +23,7 @@ echo.
 echo stop>"%~dp0watchdog.stop"
 echo   [OK] Watchdog stop signal created
 
+schtasks /end /tn "IR_Hotspot_Redirect" >nul 2>&1
 schtasks /end /tn "IR_Hotspot_Redirect_Recovery" >nul 2>&1
 
 :: Find node.exe processes running hotspot-redirect.js

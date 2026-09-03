@@ -16,23 +16,23 @@ if %errorlevel% neq 0 (
 
 set "DIR=%~dp0"
 set TASK_NAME=IR_Hotspot_Redirect
-set RECOVERY_TASK_NAME=IR_Hotspot_Redirect_Recovery
+if exist "%DIR%watchdog.stop" del "%DIR%watchdog.stop" >nul 2>&1
 
 echo [1/3] Removing existing task (if any)...
 schtasks /delete /tn "%TASK_NAME%" /f >nul 2>&1
-schtasks /delete /tn "%RECOVERY_TASK_NAME%" /f >nul 2>&1
+schtasks /delete /tn "IR_Hotspot_Redirect_Recovery" /f >nul 2>&1
 echo   [OK] Old task cleaned up
 
 echo.
 echo [2/3] Creating scheduled task...
 echo   Task name : %TASK_NAME%
-echo   Launcher  : launch-silent.vbs
+echo   Launcher  : PowerShell watchdog
 echo   Mode      : Silent background (no console window)
 echo.
 
 schtasks /create ^
     /tn "%TASK_NAME%" ^
-    /tr "wscript.exe /B \"%DIR%launch-silent.vbs\"" ^
+    /tr "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%DIR%watchdog.ps1\"" ^
     /sc ONSTART ^
     /delay 0000:30 ^
     /rl HIGHEST ^
@@ -42,22 +42,6 @@ if %errorlevel% equ 0 (
 echo   [OK] Scheduled task created
 ) else (
     echo   [FAIL] Failed to create scheduled task
-    pause
-    exit /b 1
-)
-
-echo   Creating independent recovery task (checks every minute)...
-schtasks /create ^
-    /tn "%RECOVERY_TASK_NAME%" ^
-    /tr "wscript.exe /B \"%DIR%launch-silent.vbs\" --recovery" ^
-    /sc MINUTE ^
-    /mo 1 ^
-    /rl HIGHEST ^
-    /f
-if %errorlevel% equ 0 (
-    echo   [OK] Independent recovery task created
-) else (
-    echo   [FAIL] Could not create independent recovery task
     pause
     exit /b 1
 )
@@ -90,7 +74,7 @@ echo ================================================
 echo.
 echo   Auto-start is now enabled (silent mode):
 echo     - Triggers 30s after Windows starts
-echo     - Runs hidden - no console window pops up
+    echo     - Runs as one hidden watchdog process
 echo     - Auto-starts mobile hotspot
 echo     - Monitors and restarts the proxy if it closes
 echo     - Restarts the proxy when the hotspot goes off
@@ -106,7 +90,7 @@ choice /c YN /n /m "  Start now (Y/N)? "
 if %errorlevel% equ 1 (
     echo.
     echo Starting service in background...
-    wscript.exe /B "%DIR%launch-silent.vbs"
+    schtasks /run /tn "%TASK_NAME%" >nul 2>&1
     echo Service launched. Check logs\service.log for status.
 )
 pause

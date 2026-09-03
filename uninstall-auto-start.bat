@@ -17,7 +17,6 @@ if %errorlevel% neq 0 (
 
 set "SCRIPT_DIR=%~dp0"
 set TASK_NAME=IR_Hotspot_Redirect
-set RECOVERY_TASK_NAME=IR_Hotspot_Redirect_Recovery
 
 :: Tell the watchdog to stop before removing the scheduled task
 echo stop>"%SCRIPT_DIR%watchdog.stop"
@@ -44,7 +43,7 @@ if defined KILLED (echo   [OK] Service process stopped) else (echo   [INFO] No r
 echo.
 echo [2/3] Deleting scheduled task...
 schtasks /delete /tn "%TASK_NAME%" /f >nul 2>&1
-schtasks /delete /tn "%RECOVERY_TASK_NAME%" /f >nul 2>&1
+schtasks /delete /tn "IR_Hotspot_Redirect_Recovery" /f >nul 2>&1
 if %errorlevel% equ 0 (
     echo   [OK] Task "%TASK_NAME%" deleted
 ) else (

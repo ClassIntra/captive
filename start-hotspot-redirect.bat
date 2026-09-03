@@ -68,15 +68,11 @@ exit /b %errorlevel%
 :: ============================================================
 :DoWork
 
-echo [1/4] Checking DNS port 53...
+echo [1/4] Preparing hotspot and DNS port 53...
 echo.
 
-powershell -NoProfile -Command "if (Get-NetUDPEndpoint -LocalPort 53 -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
-if %errorlevel% equ 0 (
-    echo   [INFO] Port 53 is currently used by the Windows hotspot DNS service.
-) else (
-    echo   [OK] Port 53 is free
-)
+sc query SharedAccess | findstr /i "RUNNING" >nul 2>&1
+if %errorlevel% equ 0 echo   [INFO] Windows hotspot service is running.
 
 echo.
 echo [2/4] Starting mobile hotspot...
@@ -91,9 +87,21 @@ if %errorlevel% equ 0 (
     echo          Settings ^> Network ^> Mobile Hotspot ^> On
 )
 
-:: Never stop SharedAccess here: it is the Windows Mobile Hotspot service.
-:: Stopping it can take the hotspot down.
-echo   [INFO] Keeping the Windows hotspot service running.
+:: SharedAccess may own UDP 53. Stop it only after the hotspot is ON.
+echo.
+echo   Releasing UDP port 53 after hotspot startup...
+sc stop SharedAccess >nul 2>&1
+for /l %%i in (1,1,15) do (
+    powershell -NoProfile -Command "if (Get-NetUDPEndpoint -LocalPort 53 -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+    if not errorlevel 1 goto :Port53Ready
+    powershell -NoProfile -Command "Start-Sleep -Seconds 1"
+)
+echo   [ERROR] UDP port 53 could not be released. Restoring hotspot service.
+sc start SharedAccess >nul 2>&1
+exit /b 1
+
+:Port53Ready
+echo   [OK] UDP port 53 released; proxy can start.
 
 echo.
 echo [3/4] Configuring firewall...
@@ -126,7 +134,7 @@ netsh advfirewall firewall delete rule name="Hotspot HTTPS Redirect" >nul 2>&1
 echo   [OK] Firewall rules removed
 
 sc start SharedAccess >nul 2>&1
-echo   [OK] ICS service restored
+echo   [OK] Windows hotspot service restored
 
 echo.
 echo Service stopped.
