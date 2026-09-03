@@ -82,9 +82,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%start-hotspot.ps1" -Ve
 if %errorlevel% equ 0 (
     echo   [OK] Mobile hotspot is ready
 ) else (
-    echo   [WARN] Failed to start hotspot automatically
-    echo          Please enable manually:
-    echo          Settings ^> Network ^> Mobile Hotspot ^> On
+    echo   [ERROR] Failed to start mobile hotspot. Proxy will not start.
+    sc start SharedAccess >nul 2>&1
+    exit /b 1
 )
 
 :: SharedAccess may own UDP 53. Stop it only after the hotspot is ON.
@@ -101,7 +101,14 @@ sc start SharedAccess >nul 2>&1
 exit /b 1
 
 :Port53Ready
-echo   [OK] UDP port 53 released; proxy can start.
+powershell -NoProfile -Command "if (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -eq '192.168.137.1' }) { exit 0 } else { exit 1 }" >nul 2>&1
+if errorlevel 1 (
+    echo   [ERROR] Hotspot adapter disappeared after releasing UDP 53.
+    echo          Restoring the Windows hotspot service.
+    sc start SharedAccess >nul 2>&1
+    exit /b 1
+)
+echo   [OK] UDP port 53 released and hotspot adapter is still present.
 
 echo.
 echo [3/4] Configuring firewall...

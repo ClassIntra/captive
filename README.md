@@ -97,7 +97,7 @@ install-auto-start.bat
 会创建两个 Windows 计划任务：
 
 - **IR_Hotspot_Redirect** — 开机 30 秒后触发，静默模式运行
-- **IR_Hotspot_Redirect_Recovery** — 每分钟检查，崩溃时自动重启
+主任务本身配置了无限运行时间和任务级失败恢复，不再创建第二个周期恢复任务，避免多个看门狗同时运行。
 
 ### 卸载自启动
 

@@ -7,6 +7,7 @@ logs/
 
 # Runtime
 watchdog.stop
+watchdog.lock
 service.pid
 
 # Certificates (keep directory structure, ignore actual certs)

@@ -74,11 +74,11 @@ echo ================================================
 echo.
 echo   Auto-start is now enabled (silent mode):
 echo     - Triggers 30s after Windows starts
-    echo     - Runs as one hidden watchdog process
+echo     - Runs as one hidden watchdog process
 echo     - Auto-starts mobile hotspot
 echo     - Monitors and restarts the proxy if it closes
 echo     - Restarts the proxy when the hotspot goes off
-echo     - Automatically restarts the watchdog if it crashes
+echo     - Uses task-level recovery if the watchdog exits
 echo     - All output logged to: logs\service.log and logs\watchdog.log
 echo.
 echo   To stop the service : run stop-hotspot-redirect.bat (as admin)
