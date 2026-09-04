@@ -96,19 +96,11 @@ for /l %%i in (1,1,15) do (
     if not errorlevel 1 goto :Port53Ready
     powershell -NoProfile -Command "Start-Sleep -Seconds 1"
 )
-echo   [ERROR] UDP port 53 could not be released. Restoring hotspot service.
-sc start SharedAccess >nul 2>&1
+echo   [ERROR] UDP port 53 could not be released. Please stop SharedAccess manually.
 exit /b 1
 
 :Port53Ready
-powershell -NoProfile -Command "if (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -eq '192.168.137.1' }) { exit 0 } else { exit 1 }" >nul 2>&1
-if errorlevel 1 (
-    echo   [ERROR] Hotspot adapter disappeared after releasing UDP 53.
-    echo          Restoring the Windows hotspot service.
-    sc start SharedAccess >nul 2>&1
-    exit /b 1
-)
-echo   [OK] UDP port 53 released and hotspot adapter is still present.
+echo   [OK] UDP port 53 released.
 
 echo.
 echo [3/4] Configuring firewall...
@@ -139,9 +131,6 @@ echo.
 netsh advfirewall firewall delete rule name="Hotspot DNS Redirect" >nul 2>&1
 netsh advfirewall firewall delete rule name="Hotspot HTTPS Redirect" >nul 2>&1
 echo   [OK] Firewall rules removed
-
-sc start SharedAccess >nul 2>&1
-echo   [OK] Windows hotspot service restored
 
 echo.
 echo Service stopped.

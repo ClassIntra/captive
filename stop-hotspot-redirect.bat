@@ -76,13 +76,9 @@ netsh advfirewall firewall delete rule name="Hotspot HTTPS Redirect" >nul 2>&1
 echo   [OK] Firewall rules removed
 
 echo.
-echo [3/3] Restoring ICS service...
-sc start SharedAccess >nul 2>&1
-if %errorlevel% equ 0 (
-    echo   [OK] ICS service (SharedAccess) restarted
-) else (
-    echo   [INFO] ICS service may already be running or was not stopped
-)
+echo [3/3] Cleaning up watchdog lock...
+del "%~dp0watchdog.lock" 2>nul
+echo   [OK] Done
 
 echo.
 echo ================================================
