@@ -36,6 +36,7 @@ Captive 是 [ClassIntra](https://github.com/ClassIntra/ClassIntra) 的配套工�
 - DNS 层域名拦截 — 学生设备零配置
 - HTTPS 反向代理 + TLS 终止
 - WebSocket 代理支持
+- 全屏 iframe 隐形跳转 — `t<端口>-<主机>` 跳转子域按 SNI 反代回原站，http 目标在 https 页面里也不受混合内容拦截
 - 开机自动启动（Windows 计划任务）
 - 看门狗自动崩溃恢复
 - 热点状态监控（断线自动重启）
@@ -136,11 +137,34 @@ interceptDomains: [
 ],
 ```
 
+## 跳转子域（全屏 iframe 反代）
+
+阅读器页面经 https 提供，而跳转目标通常是 http；https 页面里直接嵌 http iframe 会被浏览器
+当混合内容拦掉，目标站的 `X-Frame-Options: SAMEORIGIN` 也会拒绝被嵌。为此 Captive 提供一个
+按 SNI 路由的跳转子域：
+
+```
+阅读器里点击隐藏入口
+  └─ 页面把 http://192-168-40-90.nip.io:9001/business/ 改写成
+     https://t9001-192-168-40-90--nip--io.spark.changyan.com/business/
+     └─ Captive 按 SNI 解析：t<端口>-<主机（点换成两个减号）>.spark.changyan.com
+        └─ 反代到 http://<主机>:<端口>，并剥掉 X-Frame-Options / CSP frame-ancestors
+```
+
+- `*.spark.changyan.com` 的 DNS 拦截规则与证书通配符 SAN（`*.spark.changyan.com`）天然覆盖该子域，无需额外配置
+- `*.nip.io` 的 IP 型域名在代理内本地换算，断外网也能跳
+- 跳转 HTML 里注入的 `window.__WS_PORT__` 会被改写成 `443`，WebSocket 升级同样经 443 反代到原站：
+  先试原端口，被拒再回退 `+1000` 附属端口（ClassIntra：9001 → 10001）
+- 主机名含 `--`（punycode 等）时阅读器侧拒绝编码，退回直接跳转
+- 编码/解码逻辑分别在 `index.html` 的 `jumpFrameUrl()` 与本文件的 `parseJumpServername()`，改动需两边同步
+
 ## 项目结构
 
 ```
 captive/
 ├── hotspot-redirect.js          # 核心：DNS 服务器 + HTTPS 反向代理
+├── web-server.js                # 9110 静态阅读器页面服务（PM2 captive-web 托管）
+├── start-web-server.bat         # 手动启动 9110 的兜底脚本
 ├── watchdog.ps1                 # 健康监控（每 15 秒检查）
 ├── watchdog-loop.bat            # 外层包装：看门狗崩溃时自动重启
 ├── start-hotspot-redirect.bat   # 主启动脚本（交互 & 静默）

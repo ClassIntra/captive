@@ -21,6 +21,13 @@
 
 ## [Unreleased]
 
+### 新增
+- 9110 静态阅读器页面服务（`web-server.js`，PM2 `captive-web` 托管）
+- 全屏 iframe 隐形跳转：`t<端口>-<主机>` 跳转子域按 SNI 反代回原站，并剥掉
+  `X-Frame-Options` / CSP `frame-ancestors`，解决 https 页面嵌 http 目标的混合内容拦截
+- 跳转 HTML 中注入的 `window.__WS_PORT__` 改写为 `443`，WebSocket 升级经 443 反代、
+  端口回退 `+1000`（ClassIntra 9001 → 10001），iframe 内实时功能可用
+
 ### 修复
 - 改为单一常驻看门狗，避免恢复任务重复启动多个实例
 - 增加启动冷却和项目进程精确匹配，避免进程风暴
