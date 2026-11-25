@@ -23,7 +23,7 @@ Captive 是 [ClassIntra](https://github.com/ClassIntra/ClassIntra) 的配套工�
   │  └─ Captive 拦截 → 返回 192.168.137.1（教师电脑热点 IP）
   │
   └─ HTTPS 请求发往 192.168.137.1:443
-     └─ Captive 终止 TLS → 转发明文 HTTP 到 localhost:9001（ClassIntra）
+     └─ Captive 终止 TLS → 转发明文 HTTP 到 localhost:9110（ClassIntra）
 ```
 
 教师电脑上运行两个服务：
@@ -47,7 +47,7 @@ Captive 是 [ClassIntra](https://github.com/ClassIntra/ClassIntra) 的配套工�
 - **系统：** Windows 10 / 11
 - **运行时：** [Node.js](https://nodejs.org/) >= 18.0.0
 - **权限：** 管理员（绑定 53 和 443 端口需要）
-- **后端：** ClassIntra 或其他本地服务运行在 `localhost:9001`
+- **后端：** ClassIntra 或其他本地服务运行在 `localhost:9110`
 
 ## 快速开始
 
@@ -85,7 +85,7 @@ node hotspot-redirect.js
 2. 学生设备连接热点
 3. 浏览器访问 `https://spark.changyan.com`
 4. 接受自签名证书警告
-5. 请求被转发到本地 ClassIntra（端口 9001）
+5. 请求被转发到本地 ClassIntra（端口 9110）
 
 ## 开机自启动（推荐）
 
@@ -118,7 +118,7 @@ const CONFIG = {
   httpsPort: 443,
   upstreamDNS: '223.5.5.5',     // 阿里 DNS
   targetHost: 'localhost',
-  targetPort: 9001,             // ClassIntra 后端端口
+  targetPort: 9110,             // ClassIntra 后端端口
   certDir: path.join(__dirname, 'certs'),
 };
 ```
@@ -183,7 +183,7 @@ Get-Service -Name SharedAccess
 
 ### 后端不可用（502）
 
-ClassIntra 或其他后端服务必须在 `localhost:9001` 上运行。请先启动 ClassIntra 再启动 Captive。
+ClassIntra 或其他后端服务必须在 `localhost:9110` 上运行。请先启动 ClassIntra 再启动 Captive。
 
 ## 相关项目
 

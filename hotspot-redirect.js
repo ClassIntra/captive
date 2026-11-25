@@ -3,7 +3,7 @@
  *
  * Features:
  *   1. DNS server (UDP 53) — intercepts spark.changyan.com -> hotspot host IP
- *   2. HTTPS reverse proxy (TCP 443) — TLS termination -> localhost:9001
+ *   2. HTTPS reverse proxy (TCP 443) — TLS termination -> localhost:9110
  *
  * Requires Administrator privileges (bind ports 53 and 443)
  */
@@ -27,7 +27,7 @@ const CONFIG = {
   httpsPort: 443,
   upstreamDNS: '223.5.5.5',
   targetHost: 'localhost',
-  targetPort: 9001,
+  targetPort: 9110,
   certDir: path.join(__dirname, 'certs'),
 };
 
