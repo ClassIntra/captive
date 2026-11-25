@@ -33,6 +33,10 @@
   已切网则全屏 iframe 直接内嵌原始地址，并把 nip.io 域名就地换成字面 IP（不再依赖公网 DNS）。
   原先切网后跳转子域被公网 DNS 解析到真实服务器返回 403，整页直接跳转在 WebView 里
   报「网络异常」；iframe 直嵌要求目标站允许被嵌（ClassIntra 服务端已关闭 X-Frame-Options）
+- 跳转后头像/图片/视频不显示：跨站 iframe 里 `<img>`/`<video>` 请求不带 `SameSite=Lax`
+  登录 cookie（XHR 有 Authorization 头不受影响），依赖 cookie 的云盘文件接口全部 401。
+  ClassIntra 客户端改为资源加载失败时自动补 `?token=` 重试（服务端 `extractToken`
+  原生支持查询参数），见 `client/src/utils/media-auth.js`
 - 改为单一常驻看门狗，避免恢复任务重复启动多个实例
 - 增加启动冷却和项目进程精确匹配，避免进程风暴
 - 移除隐藏任务中对 `timeout /t` 的依赖

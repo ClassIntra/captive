@@ -162,6 +162,11 @@ interceptDomains: [
   返回 403，而整页直接跳转在 WebView 里会报「网络异常」，iframe 子框架加载不受此限——
   前提是目标站允许被嵌：ClassIntra 已在服务端关闭 `X-Frame-Options`，且该 WebView 放行
   混合内容（http iframe 可加载）
+- 跨站 iframe 媒体凭据：目标站嵌入阅读器 iframe 后相对其就是「跨站」，`SameSite=Lax`
+  的登录 cookie 在跨站 iframe 的 `<img>`/`<video>` 请求里不会携带，云盘文件/头像会
+  全部 401（XHR 有 `Authorization` 头不受影响，表现为「页面正常、图片视频全挂」）。
+  ClassIntra 端已兜底：资源加载失败时自动补 `?token=`（服务端 `extractToken` 原生
+  支持查询参数）重试一次，见 `client/src/utils/media-auth.js`；自建目标站需注意同样的坑
 - 编码/解码逻辑分别在 `index.html` 的 `jumpFrameUrl()` 与本文件的 `parseJumpServername()`，改动需两边同步
 
 ## 项目结构
