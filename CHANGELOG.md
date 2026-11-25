@@ -27,6 +27,9 @@
   `X-Frame-Options` / CSP `frame-ancestors`，解决 https 页面嵌 http 目标的混合内容拦截
 - 跳转 HTML 中注入的 `window.__WS_PORT__` 改写为 `443`，WebSocket 升级经 443 反代、
   端口回退 `+1000`（ClassIntra 9001 → 10001），iframe 内实时功能可用
+- 阅读器加载完成后自动刷新一次：绕开 WebView/代理缓存拿到最新页面与远端配置。
+  只刷一次（URL 带 `_auto=1` 防死循环），已点进目标站、抽屉打开或用户已开始
+  交互时自动放弃，不打断使用
 
 ### 修复
 - 阅读器跳转在切网后失效：点击时先探测是否仍在热点内——在则走跳转子域全屏 iframe，
