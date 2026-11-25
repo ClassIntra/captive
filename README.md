@@ -156,6 +156,9 @@ interceptDomains: [
 - 跳转 HTML 里注入的 `window.__WS_PORT__` 会被改写成 `443`，WebSocket 升级同样经 443 反代到原站：
   先试原端口，被拒再回退 `+1000` 附属端口（ClassIntra：9001 → 10001）
 - 主机名含 `--`（punycode 等）时阅读器侧拒绝编码，退回直接跳转
+- 跳转分两种状态：点击时先探测是否还在热点内（现拉一次阅读器首页，正文带 `jumpFrameUrl`
+  标记即在）。在热点内走上文的全屏 iframe；已切网则直接打开原始地址，且 `nip.io` 型域名
+  就地换成字面 IP、不依赖任何 DNS——切网后跳转子域会被公网 DNS 解析到真实服务器返回 403
 - 编码/解码逻辑分别在 `index.html` 的 `jumpFrameUrl()` 与本文件的 `parseJumpServername()`，改动需两边同步
 
 ## 项目结构
